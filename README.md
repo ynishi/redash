@@ -18,8 +18,7 @@ package main
 
 import "github.com/ynishi/redash"
 
-client = redash.DefaultClient
-byteJson = client.Get("/api/dashboards", nil) 
+resultJsonBytes = redash.Get("/api/dashboards", nil) 
 ```
 
 ## Install 
