@@ -36,6 +36,7 @@ $ cd redash
 $ go test
 ```
 
-## Licence
+## Credit and Licence
 
-* MIT, see LICENSE.
+Copyright (c) 2017, Yutaka Nishimura.
+Licenced under MIT, see LICENSE.
