@@ -1,30 +1,39 @@
 package redash
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
+	"runtime"
+	"strconv"
+	"strings"
 )
 
 const (
-	redashUrlEnv    = "REDASH_URL"
-	redashApikeyEnv = "REDASH_APIKEY"
+	redashUrlEnv        = "REDASH_URL"
+	redashApikeyEnv     = "REDASH_APIKEY"
+	postOptionsValueTag = "{_OPTIONS_VALUE_}"
 )
 
 var (
+	repository = "https://github.com/ynishi/redash"
+	ua         = fmt.Sprintf("RedashGoClient/0.1 (+%s; %s)",
+		repository, runtime.Version())
 	defaultOpts = Options{
 		Params: make(map[string]string),
 		Header: map[string]string{
-			"User-Agent": "Go client",
+			"User-Agent": ua,
 		},
 		Body: nil,
 	}
 	defaultPostHeader = map[string]string{
-		"Content-Type":  "application/json",
+		"Content-Type": "application/json",
 	}
 	DefaultClient = NewDefaultClient()
 )
@@ -53,11 +62,19 @@ func GetInter(data Interface, sub string, params map[string]string) (resp *http.
 }
 
 // Post with Interface
-func PostInter(data Interface, sub string, params map[string][]string) (resp *http.Response, err error) {
+func PostInter(data Interface, sub string, params map[string]string, paramOpts map[string]string) (resp *http.Response, err error) {
 	opts := data.DefaultOpts()
 	for key, value := range defaultPostHeader {
 		opts.Header[key] = value
 	}
+	params["options"] = postOptionsValueTag
+	paramsJson := mapEncodeJson(params)
+	paramsOptJson := mapEncodeJson(paramOpts)
+	mergedJson := strings.Replace(paramsJson, postOptionsValueTag, paramsOptJson, 1)
+	if strings.Count(mergedJson, postOptionsValueTag) != 0 {
+		return nil, errors.New(fmt.Sprintf("Invalid name or value is exists(%s) in POST params.", postOptionsValueTag))
+	}
+	opts.Body = bytes.NewBufferString(mergedJson)
 	return DoInter(data, http.MethodPost, sub, *opts)
 }
 
@@ -109,8 +126,8 @@ func Get(sub string, params map[string]string) (resp *http.Response, err error) 
 }
 
 // Post do Redash api POST
-func Post(sub string, params map[string][]string) (resp *http.Response, err error) {
-	return PostInter(DefaultClient, sub, params)
+func Post(sub string, params map[string]string, paramOpts map[string]string) (resp *http.Response, err error) {
+	return PostInter(DefaultClient, sub, params, paramOpts)
 }
 
 // Delete do Redash api DELETE
@@ -183,4 +200,24 @@ func NewDefaultClient() *DefaultClientData {
 	}
 	dcd.Logger = &log.Logger{}
 	return dcd
+}
+
+func mapEncodeJson(strs map[string]string) (res string) {
+	a := []string{}
+	s := ""
+	for k, v := range strs {
+		s = fmt.Sprintf("\"%s\":", k)
+		if _, err := strconv.Atoi(v); err == nil {
+			s += v
+		} else if _, err := strconv.ParseBool(v); err == nil {
+			s += v
+		} else if string(v[0]) == "{" && string(v[len(v)-1]) == "}" {
+			s += v
+		} else {
+			s += fmt.Sprintf("\"%s\"", v)
+		}
+		a = append(a, s)
+	}
+	res = fmt.Sprintf("{%s}", strings.Join(a, ","))
+	return res
 }

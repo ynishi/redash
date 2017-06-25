@@ -9,6 +9,10 @@ import (
 )
 
 var (
+	defaultHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Ok")
+	})
+
 	origUrlEnv    = os.Getenv(redashUrlEnv)
 	origApikeyEnv = os.Getenv(redashApikeyEnv)
 	testUrl       string
@@ -18,17 +22,7 @@ var (
 
 func setup() {
 
-	mux := http.NewServeMux()
-	mux.HandleFunc(
-		"/api/test",
-		func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/api/test" {
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"result": "ok"}`)
-		})
-	server = httptest.NewServer(mux)
+	server = httptest.NewServer(defaultHandler)
 	os.Setenv(redashUrlEnv, server.URL)
 	os.Setenv(redashApikeyEnv, testApikey)
 
