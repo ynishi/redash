@@ -25,7 +25,6 @@ var (
 	}
 	defaultPostHeader = map[string]string{
 		"Content-Type":  "application/json",
-		"Authorization": "Key " + os.Getenv(redashApikeyEnv),
 	}
 	DefaultClient = NewDefaultClient()
 )
@@ -50,10 +49,6 @@ type Interface interface {
 // Get with Interface
 func GetInter(data Interface, sub string, params map[string]string) (resp *http.Response, err error) {
 	opts := data.DefaultOpts()
-	opts.Params["apikey"], err = data.Apikey()
-	if err != nil {
-		return nil, err
-	}
 	return DoInter(data, http.MethodGet, sub, *opts)
 }
 
@@ -93,13 +88,19 @@ func RequestInter(data Interface, method, sub string, opts Options) (req *http.R
 		values.Add(key, value)
 	}
 	req, err = http.NewRequest(method, u.String(), opts.Body)
+	req.URL.RawQuery = values.Encode()
 	if err != nil {
 		return nil, err
 	}
+	apikey, err := data.Apikey()
+	if err != nil {
+		return nil, err
+	}
+	opts.Header["Authorization"] = "Key " + apikey
 	for key, value := range opts.Header {
 		req.Header.Set(key, value)
 	}
-	return req, err
+	return req, nil
 }
 
 // Get do Redash api GET
