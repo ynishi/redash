@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"bytes"
+	"net/url"
 )
 
 func TestDefaultClient(t *testing.T) {
@@ -320,7 +321,61 @@ func TestRequest(t *testing.T) {
 	}
 }
 
-func TestOriginalClient(t *testing.T) {}
+type originalClientData struct {}
+
+var (
+	origTestKey = "originalApikey"
+	origTestUrl = "http://original.com"
+)
+
+func (originalClientData) Apikey() (apikey string, err error) {
+	return origTestKey, nil
+}
+
+func (originalClientData) Url() (u *url.URL, err error) {
+	return url.Parse(origTestUrl)
+}
+
+func (originalClientData) HTTPClient() *http.Client {
+	return &http.Client{}
+}
+
+func (originalClientData) DefaultOpts() *Options {
+	return &defaultOpts
+}
+
+
+func TestOriginalClient(t *testing.T) {
+
+	client := originalClientData{}
+
+	u, err := client.Url()
+	if err != nil {
+		t.Error(err)
+	}
+	if u.String() != origTestUrl {
+		t.Fatalf("Url is bad. want: %q, have: %q", origTestKey, u.String())
+	}
+
+	apikey, err := client.Apikey()
+	if err != nil {
+		t.Error(err)
+	}
+	if apikey != origTestKey {
+		t.Fatalf("Failed get Apikey want %q have %q", origTestKey, apikey)
+	}
+
+	hc := client.HTTPClient()
+	nc := &http.Client{}
+	if !reflect.DeepEqual(hc, nc) {
+		t.Fatalf("HTTPClient is bad. want: %q, have: %q", nc, hc)
+	}
+
+	if !reflect.DeepEqual(client.DefaultOpts(), &defaultOpts) {
+		t.Fatalf("DefaultOptions is bad. want: %q, have: %q", &defaultOpts, client.DefaultOpts())
+	}
+
+}
 
 func TestGetInter(t *testing.T) {}
 

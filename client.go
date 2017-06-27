@@ -41,15 +41,31 @@ type Options struct {
 	Body   io.Reader
 }
 
-type Interface interface {
-	// Url is Redash server's endpoint.
+// Url is Redash server's endpoint.
+type Urler interface {
 	Url() (*url.URL, error)
-	// Apikey is Redash Apikey to connect primary.
-	Apikey() (string, error)
-	// HTTPClient is HTTP client to do request.
+}
+
+// Apikey is Redash Apikey to connect primary.
+type Apikeyer interface {
+	Apikey()(string, error)
+}
+
+// HTTPClient is HTTP client to do request.
+type HTTPClienter interface {
 	HTTPClient() *http.Client
-	// DefaultOpts is default options for request.
+}
+
+// DefaultOpts is default options for request.
+type DefaultOptser interface {
 	DefaultOpts() *Options
+}
+
+type Interface interface {
+	Urler
+	Apikeyer
+	HTTPClienter
+	DefaultOptser
 }
 
 // Get with Interface
@@ -142,7 +158,7 @@ func Request(method, sub string, opts Options) (req *http.Request, err error) {
 }
 
 type ClientData struct {
-	Logger *log.Logger
+	*log.Logger
 }
 
 type DefaultClientData struct {
