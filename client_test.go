@@ -39,8 +39,8 @@ func TestDefaultClient(t *testing.T) {
 		t.Fatalf("HTTPClient is bad. want: %q, have: %q", http.DefaultClient, client.HTTPClient())
 	}
 
-	if !reflect.DeepEqual(client.DefaultOpts(), &defaultOpts) {
-		t.Fatalf("DefaultOptions is bad. want: %q, have: %q", &defaultOpts, client.DefaultOpts())
+	if !reflect.DeepEqual(client.DefaultOpts(), defaultOpts()) {
+		t.Fatalf("DefaultOptions is bad. want: %q, have: %q", defaultOpts, client.DefaultOpts())
 	}
 }
 
@@ -264,8 +264,9 @@ func TestDo(t *testing.T) {
 
 	os.Setenv(redashUrlEnv, tgs.URL)
 
-	defaultOpts.Params = map[string]string{"id": "abc"}
-	resp, err := Do(http.MethodGet, "api/dotest", defaultOpts)
+	opts := defaultOpts()
+	opts.Params = map[string]string{"id": "abc"}
+	resp, err := Do(http.MethodGet, "api/dotest", opts)
 	if err != nil {
 		t.Fatalf("Failed recieve Response from Delete. %v", err)
 	}
@@ -296,11 +297,13 @@ func TestRequest(t *testing.T) {
 
 	os.Setenv(redashUrlEnv, testUrl)
 
-	opt := Opt{Opt1: true, Opt2: "f"}
-	opts := postOpt{Id: 123, Name: "abc", Opts: opt}
-	jbuf, err := json.Marshal(opts)
-	defaultOpts.Body = bytes.NewReader(jbuf)
-	req, err := Request(http.MethodPost, "api/reqtest", defaultOpts)
+	bodyOpt := Opt{Opt1: true, Opt2: "f"}
+	BodyOpts := postOpt{Id: 123, Name: "abc", Opts: bodyOpt}
+	jbuf, err := json.Marshal(BodyOpts)
+
+	opts := defaultOpts()
+	opts.Body = bytes.NewReader(jbuf)
+	req, err := Request(http.MethodPost, "api/reqtest", opts)
 
 	if auth := req.Header.Get("Authorization"); !strings.Contains(auth, testApikey) {
 		t.Fatalf("Invalid Apikey %s", auth)
@@ -321,7 +324,7 @@ func TestRequest(t *testing.T) {
 	}
 }
 
-type originalClientData struct {}
+type originalClientData struct{}
 
 var (
 	origTestKey = "originalApikey"
@@ -341,9 +344,8 @@ func (originalClientData) HTTPClient() *http.Client {
 }
 
 func (originalClientData) DefaultOpts() *Options {
-	return &defaultOpts
+	return defaultOpts()
 }
-
 
 func TestOriginalClient(t *testing.T) {
 
@@ -371,18 +373,304 @@ func TestOriginalClient(t *testing.T) {
 		t.Fatalf("HTTPClient is bad. want: %q, have: %q", nc, hc)
 	}
 
-	if !reflect.DeepEqual(client.DefaultOpts(), &defaultOpts) {
-		t.Fatalf("DefaultOptions is bad. want: %q, have: %q", &defaultOpts, client.DefaultOpts())
+	if !reflect.DeepEqual(client.DefaultOpts(), defaultOpts()) {
+		t.Fatalf("DefaultOpts is bad. want: %q, have: %q", defaultOpts(), client.DefaultOpts())
 	}
 
 }
 
-func TestGetInter(t *testing.T) {}
+func TestGetInter(t *testing.T) {
 
-func TestPostInter(t *testing.T) {}
+	beforeUrlEnv := os.Getenv(redashUrlEnv)
+	defer os.Setenv(redashUrlEnv, beforeUrlEnv)
 
-func TestDeleteInter(t *testing.T) {}
+	mux := http.NewServeMux()
+	mux.HandleFunc(
+		"/api/getintertest",
+		func(w http.ResponseWriter, r *http.Request) {
+			if auth := r.Header.Get("Authorization"); !strings.Contains(auth, origTestKey) {
+				t.Fatal("auth")
+				http.Error(w, fmt.Sprintf("Invalid Apikey %s", auth), http.StatusForbidden)
+				return
+			}
+			if meth := r.Method; meth != http.MethodGet {
+				t.Fatal("meth")
+				http.Error(w, fmt.Sprintf("Invalid Method %s", meth), http.StatusBadRequest)
+				return
+			}
+			if id := r.URL.Query().Get("id"); id != "abc" {
+				t.Fatal("id")
+				http.Error(w, fmt.Sprintf("Invalid Parameter %s", id), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"result": "ok"}`)
+		})
 
-func TestDoInter(t *testing.T) {}
+	tgs := httptest.NewServer(mux)
 
-func TestRequestInter(t *testing.T) {}
+	os.Setenv(redashUrlEnv, tgs.URL)
+	origTestUrl = tgs.URL
+
+	params := map[string]string{"id": "abc"}
+	client := originalClientData{}
+	resp, err := GetInter(client, "/api/getintertest", params)
+	if err != nil {
+		t.Fatalf("Failed recieve Response from Get. %v", err)
+	}
+	defer resp.Body.Close()
+	var have Check
+	buf, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed ReadAll from buf, %v", err)
+	}
+	err = json.Unmarshal(buf, &have)
+	if err != nil {
+		t.Fatalf("Failed Decode Json, %v", err)
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		t.Fatalf("Apikey did not match, apikey: %s", resp.Body)
+	}
+	if resp.StatusCode == http.StatusBadRequest {
+		t.Fatalf("HTTPMethod was not GET, method: %s", resp.Body)
+	}
+	if want := "ok"; have.Result != want {
+		t.Fatalf("resp is bad. want: %q, have: %q", want, have)
+	}
+	if !reflect.DeepEqual(client.DefaultOpts(), defaultOpts()) {
+		t.Fatalf("DefaultOpts is bad. want: %q, have: %q", defaultOpts(), client.DefaultOpts())
+	}
+}
+
+func TestPostInter(t *testing.T) {
+	beforeUrlEnv := os.Getenv(redashUrlEnv)
+	defer os.Setenv(redashUrlEnv, beforeUrlEnv)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(
+		"/api/posttest",
+		func(w http.ResponseWriter, r *http.Request) {
+			if auth := r.Header.Get("Authorization"); !strings.Contains(auth, origTestKey) {
+				http.Error(w, fmt.Sprintf("Invalid Apikey %s", auth), http.StatusForbidden)
+				return
+			}
+			if meth := r.Method; meth != http.MethodPost {
+				http.Error(w, fmt.Sprintf("Invalid Method %s", meth), http.StatusBadRequest)
+				return
+			}
+			buf, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("Failed ReadAll have: %q err: %v", r.Body, err)
+			}
+			var postJson postOpt
+			if err := json.Unmarshal(buf, &postJson); err != nil {
+				t.Fatalf("Failed Json Decode have: %q err: %v", postJson, err)
+			}
+			if postJson == *new(postOpt) {
+				t.Fatalf("Length of postJson was 0 have: %q err: %v", postJson, err)
+			}
+			if postJson.Name != "abc" {
+				http.Error(w, fmt.Sprintf("Failed send data have: %q %q", r.Body, postJson), http.StatusInternalServerError)
+				return
+			}
+			if !postJson.Opts.Opt1 {
+				http.Error(w, fmt.Sprintf("Failed send child data have: %q %q", r.Body, postJson), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"result": "ok"}`)
+		})
+
+	tgs := httptest.NewServer(mux)
+
+	os.Setenv(redashUrlEnv, tgs.URL)
+	origTestUrl = tgs.URL
+
+	opt := Opt{Opt1: true, Opt2: "f"}
+	opts := postOpt{Id: 123, Name: "abc", Opts: opt}
+	jbuf, err := json.Marshal(opts)
+	client := originalClientData{}
+	resp, err := PostInter(originalClientData{}, "api/posttest", jbuf)
+	if err != nil {
+		t.Fatalf("Failed recieve Response from Post. %v", err)
+	}
+	defer resp.Body.Close()
+
+	var have Check
+	buf, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed ReadAll from buf, %v", err)
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		t.Fatalf("Apikey did not match, apikey: %s", resp.Body)
+	}
+	if resp.StatusCode == http.StatusBadRequest {
+		t.Fatalf("HTTPMethod was not POST, method: %s", resp.Body)
+	}
+	if resp.StatusCode == http.StatusInternalServerError {
+		t.Fatalf("Cannot send body, BODY: %s", resp.Body)
+	}
+	err = json.Unmarshal(buf, &have)
+	if err != nil {
+		t.Fatalf("Failed Decode Json, %v", err)
+	}
+	if want := "ok"; have.Result != want {
+		t.Fatalf("resp is bad. want: %q, have: %q", want, have)
+	}
+	if !reflect.DeepEqual(client.DefaultOpts(), defaultOpts()) {
+		t.Fatalf("DefaultOpts is bad. want: %q, have: %q", defaultOpts(), client.DefaultOpts())
+	}
+}
+
+func TestDeleteInter(t *testing.T) {
+	beforeUrlEnv := os.Getenv(redashUrlEnv)
+	defer os.Setenv(redashUrlEnv, beforeUrlEnv)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(
+		"/api/deleteintertest",
+		func(w http.ResponseWriter, r *http.Request) {
+			if auth := r.Header.Get("Authorization"); !strings.Contains(auth, origTestKey) {
+				http.Error(w, fmt.Sprintf("Invalid Apikey %s", auth), http.StatusForbidden)
+				return
+			}
+			if meth := r.Method; meth != http.MethodDelete {
+				http.Error(w, fmt.Sprintf("Invalid Method %s", meth), http.StatusBadRequest)
+				return
+			}
+			if id := r.URL.Query().Get("id"); id != "abc" {
+				http.Error(w, fmt.Sprintf("Invalid Parameter %s", id), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"result": "ok"}`)
+		})
+
+	tgs := httptest.NewServer(mux)
+	origTestUrl = tgs.URL
+
+	os.Setenv(redashUrlEnv, tgs.URL)
+
+	params := map[string]string{"id": "abc"}
+	client := originalClientData{}
+	resp, err := DeleteInter(client, "api/deleteintertest", params)
+	if err != nil {
+		t.Fatalf("Failed recieve Response from Delete. %v", err)
+	}
+	defer resp.Body.Close()
+	var have Check
+	buf, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed ReadAll from buf, %v", err)
+	}
+	err = json.Unmarshal(buf, &have)
+	if err != nil {
+		t.Fatalf("Failed Decode Json, %v", err)
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		t.Fatalf("Apikey did not match, apikey: %s", resp.Body)
+	}
+	if resp.StatusCode == http.StatusBadRequest {
+		t.Fatalf("HTTPMethod was not Delete, method: %s", resp.Body)
+	}
+	if want := "ok"; have.Result != want {
+		t.Fatalf("resp is bad. want: %q, have: %q", want, have)
+	}
+	if !reflect.DeepEqual(client.DefaultOpts(), defaultOpts()) {
+		t.Fatalf("DefaultOpts is bad. want: %q, have: %q", defaultOpts(), client.DefaultOpts())
+	}
+}
+
+func TestDoInter(t *testing.T) {
+	beforeUrlEnv := os.Getenv(redashUrlEnv)
+	defer os.Setenv(redashUrlEnv, beforeUrlEnv)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(
+		"/api/dotest",
+		func(w http.ResponseWriter, r *http.Request) {
+			if auth := r.Header.Get("Authorization"); !strings.Contains(auth, origTestKey) {
+				http.Error(w, fmt.Sprintf("Invalid Apikey %s", auth), http.StatusForbidden)
+				return
+			}
+			if meth := r.Method; meth != http.MethodGet {
+				http.Error(w, fmt.Sprintf("Invalid Method %s", meth), http.StatusBadRequest)
+				return
+			}
+			if id := r.URL.Query().Get("id"); id != "abc" {
+				http.Error(w, fmt.Sprintf("Invalid Parameter %s", id), http.StatusInternalServerError)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(w, `{"result": "ok"}`)
+		})
+
+	tgs := httptest.NewServer(mux)
+
+	os.Setenv(redashUrlEnv, tgs.URL)
+	origTestUrl = tgs.URL
+
+	opts := defaultOpts()
+	opts.Params = map[string]string{"id": "abc"}
+	client := originalClientData{}
+	resp, err := DoInter(client, http.MethodGet, "api/dotest", opts)
+	if err != nil {
+		t.Fatalf("Failed recieve Response from Delete. %v", err)
+	}
+	defer resp.Body.Close()
+	var have Check
+	buf, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed ReadAll from buf, %v", err)
+	}
+	err = json.Unmarshal(buf, &have)
+	if err != nil {
+		t.Fatalf("Failed Decode Json, %v", err)
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		t.Fatalf("Apikey did not match, apikey: %s", resp.Body)
+	}
+	if resp.StatusCode == http.StatusBadRequest {
+		t.Fatalf("HTTPMethod was not Delete, method: %s", resp.Body)
+	}
+	if want := "ok"; have.Result != want {
+		t.Fatalf("resp is bad. want: %q, have: %q", want, have)
+	}
+	if !reflect.DeepEqual(client.DefaultOpts(), defaultOpts()) {
+		t.Fatalf("DefaultOpts is bad. want: %q, have: %q", defaultOpts(), client.DefaultOpts())
+	}
+}
+
+func TestRequestInter(t *testing.T) {
+	beforeUrlEnv := os.Getenv(redashUrlEnv)
+	defer os.Setenv(redashUrlEnv, beforeUrlEnv)
+
+	os.Setenv(redashUrlEnv, testUrl)
+
+	bodyOpt := Opt{Opt1: true, Opt2: "f"}
+	BodyOpts := postOpt{Id: 123, Name: "abc", Opts: bodyOpt}
+	jbuf, err := json.Marshal(BodyOpts)
+
+	opts := defaultOpts()
+	opts.Body = bytes.NewReader(jbuf)
+	client := originalClientData{}
+	req, err := RequestInter(client, http.MethodPost, "api/reqtest", opts)
+
+	if auth := req.Header.Get("Authorization"); !strings.Contains(auth, origTestKey) {
+		t.Fatalf("Invalid Apikey %s", auth)
+	}
+	if meth := req.Method; meth != http.MethodPost {
+		t.Fatalf("Invalid Method %s", meth)
+	}
+	buf, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		t.Fatalf("Failed ReadAll have: %q err: %v", req.Body, err)
+	}
+	var postJson postOpt
+	if err := json.Unmarshal(buf, &postJson); err != nil {
+		t.Fatalf("Failed Json Decode have: %q err: %v", postJson, err)
+	}
+	if postJson.Name != "abc" {
+		t.Fatalf("Failed prepare data have: %q %q", req.Body, postJson)
+	}
+
+}

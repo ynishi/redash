@@ -22,18 +22,21 @@ var (
 	repository = "https://github.com/ynishi/redash"
 	ua         = fmt.Sprintf("RedashGoClient/0.1 (+%s; %s)",
 		repository, runtime.Version())
-	defaultOpts = Options{
+	defaultPostHeader = map[string]string{
+		"Content-Type": "application/json",
+	}
+	DefaultClient = NewDefaultClient()
+)
+
+func defaultOpts() *Options {
+	return &Options{
 		Params: make(map[string]string),
 		Header: map[string]string{
 			"User-Agent": ua,
 		},
 		Body: nil,
 	}
-	defaultPostHeader = map[string]string{
-		"Content-Type": "application/json",
-	}
-	DefaultClient = NewDefaultClient()
-)
+}
 
 type Options struct {
 	Params map[string]string
@@ -48,7 +51,7 @@ type Urler interface {
 
 // Apikey is Redash Apikey to connect primary.
 type Apikeyer interface {
-	Apikey()(string, error)
+	Apikey() (string, error)
 }
 
 // HTTPClient is HTTP client to do request.
@@ -74,7 +77,7 @@ func GetInter(data Interface, sub string, params map[string]string) (resp *http.
 	for key, value := range params {
 		opts.Params[key] = value
 	}
-	return DoInter(data, http.MethodGet, sub, *opts)
+	return DoInter(data, http.MethodGet, sub, opts)
 }
 
 // Post with Interface
@@ -84,7 +87,7 @@ func PostInter(data Interface, sub string, jsonBody []byte) (resp *http.Response
 		opts.Header[key] = value
 	}
 	opts.Body = bytes.NewReader(jsonBody)
-	return DoInter(data, http.MethodPost, sub, *opts)
+	return DoInter(data, http.MethodPost, sub, opts)
 }
 
 // Delete with Interface
@@ -93,11 +96,11 @@ func DeleteInter(data Interface, sub string, params map[string]string) (resp *ht
 	for key, value := range params {
 		opts.Params[key] = value
 	}
-	return DoInter(data, http.MethodDelete, sub, *opts)
+	return DoInter(data, http.MethodDelete, sub, opts)
 }
 
 // Do with Interface
-func DoInter(data Interface, method, sub string, opts Options) (resp *http.Response, err error) {
+func DoInter(data Interface, method, sub string, opts *Options) (resp *http.Response, err error) {
 	req, err := RequestInter(data, method, sub, opts)
 	if err != nil {
 		return nil, err
@@ -106,7 +109,7 @@ func DoInter(data Interface, method, sub string, opts Options) (resp *http.Respo
 }
 
 // Request with Interface
-func RequestInter(data Interface, method, sub string, opts Options) (req *http.Request, err error) {
+func RequestInter(data Interface, method, sub string, opts *Options) (req *http.Request, err error) {
 	u, err := data.Url()
 	if err != nil {
 		return nil, err
@@ -148,12 +151,12 @@ func Delete(sub string, params map[string]string) (resp *http.Response, err erro
 }
 
 // Do Redash api
-func Do(method, sub string, opts Options) (resp *http.Response, err error) {
+func Do(method, sub string, opts *Options) (resp *http.Response, err error) {
 	return DoInter(DefaultClient, method, sub, opts)
 }
 
 // Request make http.Request for Redash
-func Request(method, sub string, opts Options) (req *http.Request, err error) {
+func Request(method, sub string, opts *Options) (req *http.Request, err error) {
 	return RequestInter(DefaultClient, method, sub, opts)
 }
 
@@ -192,7 +195,7 @@ func (dc DefaultClientData) HTTPClient() *http.Client {
 }
 
 func (dc DefaultClientData) DefaultOpts() *Options {
-	return &defaultOpts
+	return defaultOpts()
 }
 
 func NewDefaultClient() *DefaultClientData {
