@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"testing"
 )
@@ -12,13 +13,34 @@ var (
 	defaultHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Ok")
 	})
-
 	origUrlEnv    = os.Getenv(redashUrlEnv)
 	origApikeyEnv = os.Getenv(redashApikeyEnv)
 	testUrl       string
 	testApikey    = "abcdef"
 	server        *httptest.Server
+	mockApikey    = "mockApikey"
+	mockClient    = mockClientData{}
 )
+
+type mockClientData struct {
+	MockUrl string
+}
+
+func (mockClientData) Apikey() (apikey string, err error) {
+	return mockApikey, nil
+}
+
+func (md mockClientData) Url() (u *url.URL, err error) {
+	return url.Parse(md.MockUrl)
+}
+
+func (mockClientData) HTTPClient() *http.Client {
+	return &http.Client{}
+}
+
+func (mockClientData) DefaultOpts() *Options {
+	return defaultOpts()
+}
 
 func setup() {
 
