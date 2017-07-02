@@ -67,6 +67,7 @@ func TestGet(t *testing.T) {
 			}
 			if id := r.URL.Query().Get("id"); id != "abc" {
 				http.Error(w, fmt.Sprintf("Invalid Parameter %s", id), http.StatusInternalServerError)
+				return
 			}
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintf(w, `{"result": "ok"}`)
@@ -141,9 +142,11 @@ func TestPost(t *testing.T) {
 			}
 			if postJson.Name != "abc" {
 				http.Error(w, fmt.Sprintf("Failed send data have: %q %q", r.Body, postJson), http.StatusInternalServerError)
+				return
 			}
 			if !postJson.Opts.Opt1 {
 				http.Error(w, fmt.Sprintf("Failed send child data have: %q %q", r.Body, postJson), http.StatusInternalServerError)
+				return
 			}
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintf(w, `{"result": "ok"}`)
@@ -255,6 +258,7 @@ func TestDo(t *testing.T) {
 			}
 			if id := r.URL.Query().Get("id"); id != "abc" {
 				http.Error(w, fmt.Sprintf("Invalid Parameter %s", id), http.StatusInternalServerError)
+				return
 			}
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintf(w, `{"result": "ok"}`)
@@ -448,7 +452,7 @@ func TestPostInter(t *testing.T) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc(
-		"/api/posttest",
+		"/api/postintertest",
 		func(w http.ResponseWriter, r *http.Request) {
 			if auth := r.Header.Get("Authorization"); !strings.Contains(auth, origTestKey) {
 				http.Error(w, fmt.Sprintf("Invalid Apikey %s", auth), http.StatusForbidden)
@@ -490,7 +494,7 @@ func TestPostInter(t *testing.T) {
 	opts := postOpt{Id: 123, Name: "abc", Opts: opt}
 	jbuf, err := json.Marshal(opts)
 	client := originalClientData{}
-	resp, err := PostInter(originalClientData{}, "api/posttest", jbuf)
+	resp, err := PostInter(originalClientData{}, "api/postintertest", jbuf)
 	if err != nil {
 		t.Fatalf("Failed recieve Response from Post. %v", err)
 	}
@@ -587,7 +591,7 @@ func TestDoInter(t *testing.T) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc(
-		"/api/dotest",
+		"/api/dointertest",
 		func(w http.ResponseWriter, r *http.Request) {
 			if auth := r.Header.Get("Authorization"); !strings.Contains(auth, origTestKey) {
 				http.Error(w, fmt.Sprintf("Invalid Apikey %s", auth), http.StatusForbidden)
@@ -599,6 +603,7 @@ func TestDoInter(t *testing.T) {
 			}
 			if id := r.URL.Query().Get("id"); id != "abc" {
 				http.Error(w, fmt.Sprintf("Invalid Parameter %s", id), http.StatusInternalServerError)
+				return
 			}
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintf(w, `{"result": "ok"}`)
@@ -612,7 +617,7 @@ func TestDoInter(t *testing.T) {
 	opts := defaultOpts()
 	opts.Params = map[string]string{"id": "abc"}
 	client := originalClientData{}
-	resp, err := DoInter(client, http.MethodGet, "api/dotest", opts)
+	resp, err := DoInter(client, http.MethodGet, "api/dointertest", opts)
 	if err != nil {
 		t.Fatalf("Failed recieve Response from Delete. %v", err)
 	}
@@ -672,5 +677,7 @@ func TestRequestInter(t *testing.T) {
 	if postJson.Name != "abc" {
 		t.Fatalf("Failed prepare data have: %q %q", req.Body, postJson)
 	}
-
+	if !reflect.DeepEqual(client.DefaultOpts(), defaultOpts()) {
+		t.Fatalf("DefaultOpts is bad. want: %q, have: %q", defaultOpts(), client.DefaultOpts())
+	}
 }
