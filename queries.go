@@ -4,8 +4,10 @@
 package redash
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 )
 
 var Queries = &QueriesS{DefaultClient}
@@ -48,6 +50,15 @@ type ResponseQuery struct {
 	Runtime           int     `json:"runtime"`
 }
 
+type NewQuery struct {
+	DataSourceId int               `json:"data_source_id"`
+	Query        string            `json:"query"`
+	Name         string            `json:"name"`
+	Description  string            `json:"description"`
+	Schedule     string            `json:"schedule"`
+	Options      map[string]string `json:"options"`
+}
+
 func (qs QueriesS) PostFormat(sql string) (r io.Reader, err error) {
 	resp, err := PostInter(qs.Client, qs.Queries("format"), []byte(fmt.Sprintf(`{"query":"%s"}`, sql)))
 	if err != nil {
@@ -60,6 +71,157 @@ func (qs QueriesS) PostFormat(sql string) (r io.Reader, err error) {
 func (qs QueriesS) GetSearch(q string) (r io.Reader, err error) {
 	params := map[string]string{"q": q}
 	resp, err := GetInter(qs.Client, qs.Queries("search"), params)
+	if err != nil {
+		return nil, err
+	} else {
+		return resp.Body, nil
+	}
+}
+
+func (qs QueriesS) GetRecent() (r io.Reader, err error) {
+	resp, err := GetInter(qs.Client, qs.Queries("recent"), nil)
+	if err != nil {
+		return nil, err
+	} else {
+		return resp.Body, nil
+	}
+}
+
+func (qs QueriesS) GetMy(pageSize, page int) (r io.Reader, err error) {
+	params := map[string]string{"page_size": strconv.Itoa(pageSize), "page": strconv.Itoa(page)}
+	resp, err := GetInter(qs.Client, qs.Queries("my"), params)
+	if err != nil {
+		return nil, err
+	} else {
+		return resp.Body, nil
+	}
+}
+
+func (qs QueriesS) PostQuery(newQuery NewQuery) (res io.Reader, err error) {
+	newQueryBuf, err := json.Marshal(newQuery)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := PostInter(qs.Client, qs.Queries(""), newQueryBuf)
+	if err != nil {
+		return nil, err
+	} else {
+		return resp.Body, nil
+	}
+}
+
+func (qs QueriesS) GetQuery(pageSize, page int) (r io.Reader, err error) {
+	params := map[string]string{"page_size": strconv.Itoa(pageSize), "page": strconv.Itoa(page)}
+	resp, err := GetInter(qs.Client, qs.Queries(""), params)
+	if err != nil {
+		return nil, err
+	} else {
+		return resp.Body, nil
+	}
+}
+
+func (qs QueriesS) PostRefresh(queryId int) (r io.Reader, err error) {
+	resp, err := PostInter(qs.Client, qs.Queries(fmt.Sprintf("%s/refresh", strconv.Itoa(queryId))), nil)
+	if err != nil {
+		return nil, err
+	} else {
+		return resp.Body, nil
+	}
+}
+
+func (qs QueriesS) PostFork(queryId int) (r io.Reader, err error) {
+	resp, err := PostInter(qs.Client, qs.Queries(fmt.Sprintf("%s/fork", strconv.Itoa(queryId))), nil)
+	if err != nil {
+		return nil, err
+	} else {
+		return resp.Body, nil
+	}
+}
+
+func (qs QueriesS) PostQueryId(queryId int, newQuery NewQuery) (r io.Reader, err error) {
+	newQueryBuf, err := json.Marshal(newQuery)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := PostInter(qs.Client, qs.Queries(strconv.Itoa(queryId)), newQueryBuf)
+	if err != nil {
+		return nil, err
+	} else {
+		return resp.Body, nil
+	}
+}
+
+func (qs QueriesS) DeleteQuery(queryId int) (r io.Reader, err error) {
+	resp, err := DeleteInter(qs.Client, qs.Queries(strconv.Itoa(queryId)), nil)
+	if err != nil {
+		return nil, err
+	} else {
+		return resp.Body, nil
+	}
+}
+
+func (qs QueriesS) GetQueryId(queryId int) (r io.Reader, err error) {
+	resp, err := GetInter(qs.Client, qs.Queries(strconv.Itoa(queryId)), nil)
+	if err != nil {
+		return nil, err
+	} else {
+		return resp.Body, nil
+	}
+}
+
+func (qs QueriesS) PostQueryResult(query string, queryId, maxAge, dataSourceId int) (r io.Reader, err error) {
+	resp, err := PostInter(qs.Client, "api/query_results", []byte(fmt.Sprintf(`{"query":"%s","query_id":%d,"max_age":"%s","data_sourece_id":%d}`)))
+	if err != nil {
+		return nil, err
+	} else {
+		return resp.Body, nil
+	}
+}
+
+//GET /api/queries/(query_id)/results/(query_result_id).(filetype)
+func (qs QueriesS) GetResultsId(queryId, queryResultId int, filetype string) (r io.Reader, err error) {
+	resp, err := GetInter(qs.Client, qs.Queries(fmt.Sprintf("%s/results/%s.%s", strconv.Itoa(queryId), strconv.Itoa(queryResultId), filetype)), nil)
+	if err != nil {
+		return nil, err
+	} else {
+		return resp.Body, nil
+	}
+}
+
+//GET /api/queries/(query_id)/results.(filetype)
+func (qs QueriesS) PostResults(queryId int, filetype string) (r io.Reader, err error) {
+	resp, err := PostInter(qs.Client, qs.Queries(fmt.Sprintf("%s/results.%s", strconv.Itoa(queryId), filetype)), nil)
+	if err != nil {
+		return nil, err
+	} else {
+		return resp.Body, nil
+	}
+}
+
+//GET /api/query_results/(query_result_id)
+func (qs QueriesS) GetQueryResults(queryId, queryResultId int, filetype string) (r io.Reader, err error) {
+	params := map[string]string{"query_id": strconv.Itoa(queryId), "query_result_id": strconv.Itoa(queryResultId), "filetype": filetype}
+	resp, err := GetInter(qs.Client, fmt.Sprintf("query_results/%s", queryResultId), params)
+	if err != nil {
+		return nil, err
+	} else {
+		return resp.Body, nil
+	}
+}
+
+//DELETE /api/jobs/(job_id)
+func (qs QueriesS) DeleteJog(jobId int) (r io.Reader, err error) {
+	resp, err := DeleteInter(qs.Client, fmt.Sprintf("api/jobs/%s", strconv.Itoa(jobId)), nil)
+	if err != nil {
+		return nil, err
+	} else {
+		return resp.Body, nil
+	}
+}
+
+//GET /api/jobs/(job_id)
+func (qs QueriesS) GetJob(jobId int) (r io.Reader, err error) {
+	resp, err := GetInter(qs.Client, fmt.Sprintf("api/jobs/%s", strconv.Itoa(jobId)), nil)
 	if err != nil {
 		return nil, err
 	} else {
