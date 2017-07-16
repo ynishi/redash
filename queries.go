@@ -28,6 +28,13 @@ type FormatQuery struct {
 	Query string `json:"query"`
 }
 
+type PagingResponseQuery struct {
+	Count    int             `json:"count"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"page_size"`
+	Results  []ResponseQuery `json:"results"`
+}
+
 type ResponseQuery struct {
 	Id                int     `json:"id"`
 	LatestQueryDataId int     `json:"latest_query_data_id"`
@@ -57,6 +64,47 @@ type NewQuery struct {
 	Description  string            `json:"description"`
 	Schedule     string            `json:"schedule"`
 	Options      map[string]string `json:"options"`
+}
+
+type Row struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+type Column struct {
+	FriendlyName string `json:"friendly_name"`
+	Type         string `json:"type"`
+	Name         string `json:"name"`
+}
+
+type ResultData struct {
+	Rows    []Row    `json:"rows"`
+	Columns []Column `json:"columns"`
+}
+type QueryResult struct {
+	RetrievedAt  string     `json:"retrieved_at"`
+	QueryHash    string     `json:"query_hash"`
+	Query        string     `json:"query"`
+	Runtime      float64    `json:"runtime"`
+	Data         ResultData `json:"data"`
+	Id           int        `json:"id"`
+	DataSourceId int        `json:"data_source_id"`
+}
+
+type Result struct {
+	QueryResult QueryResult `json:"query_result"`
+}
+
+type JobInner struct {
+	Status        int    `json:"status"`
+	Error         string `json:"error"`
+	Id            string `json:"id"`
+	QueryResultId string `json:"query_result_id"`
+	Updated_at    int    `json:"updated_at"`
+}
+
+type Job struct {
+	Job JobInner `josn:"job"`
 }
 
 func (qs QueriesS) PostFormat(sql string) (r io.Reader, err error) {
@@ -170,7 +218,7 @@ func (qs QueriesS) GetQueryId(queryId int) (r io.Reader, err error) {
 }
 
 func (qs QueriesS) PostQueryResult(query string, queryId, maxAge, dataSourceId int) (r io.Reader, err error) {
-	resp, err := PostInter(qs.Client, "api/query_results", []byte(fmt.Sprintf(`{"query":"%s","query_id":%d,"max_age":"%s","data_sourece_id":%d}`)))
+	resp, err := PostInter(qs.Client, "/api/query_results", []byte(fmt.Sprintf(`{"query":"%s","query_id":%d,"max_age":"%s","data_sourece_id":%d}`)))
 	if err != nil {
 		return nil, err
 	} else {
@@ -179,7 +227,7 @@ func (qs QueriesS) PostQueryResult(query string, queryId, maxAge, dataSourceId i
 }
 
 //GET /api/queries/(query_id)/results/(query_result_id).(filetype)
-func (qs QueriesS) GetResultsId(queryId, queryResultId int, filetype string) (r io.Reader, err error) {
+func (qs QueriesS) GetResultsById(queryId, queryResultId int, filetype string) (r io.Reader, err error) {
 	resp, err := GetInter(qs.Client, qs.Queries(fmt.Sprintf("%s/results/%s.%s", strconv.Itoa(queryId), strconv.Itoa(queryResultId), filetype)), nil)
 	if err != nil {
 		return nil, err
@@ -189,8 +237,8 @@ func (qs QueriesS) GetResultsId(queryId, queryResultId int, filetype string) (r 
 }
 
 //GET /api/queries/(query_id)/results.(filetype)
-func (qs QueriesS) PostResults(queryId int, filetype string) (r io.Reader, err error) {
-	resp, err := PostInter(qs.Client, qs.Queries(fmt.Sprintf("%s/results.%s", strconv.Itoa(queryId), filetype)), nil)
+func (qs QueriesS) GetResultsByQueryId(queryId int, filetype string) (r io.Reader, err error) {
+	resp, err := GetInter(qs.Client, qs.Queries(fmt.Sprintf("%s/results.%s", strconv.Itoa(queryId), filetype)), nil)
 	if err != nil {
 		return nil, err
 	} else {
@@ -199,9 +247,8 @@ func (qs QueriesS) PostResults(queryId int, filetype string) (r io.Reader, err e
 }
 
 //GET /api/query_results/(query_result_id)
-func (qs QueriesS) GetQueryResults(queryId, queryResultId int, filetype string) (r io.Reader, err error) {
-	params := map[string]string{"query_id": strconv.Itoa(queryId), "query_result_id": strconv.Itoa(queryResultId), "filetype": filetype}
-	resp, err := GetInter(qs.Client, fmt.Sprintf("query_results/%s", queryResultId), params)
+func (qs QueriesS) GetQueryResults(queryResultId int) (r io.Reader, err error) {
+	resp, err := GetInter(qs.Client, fmt.Sprintf("/api/query_results/%d", queryResultId), nil)
 	if err != nil {
 		return nil, err
 	} else {
@@ -211,7 +258,7 @@ func (qs QueriesS) GetQueryResults(queryId, queryResultId int, filetype string) 
 
 //DELETE /api/jobs/(job_id)
 func (qs QueriesS) DeleteJog(jobId int) (r io.Reader, err error) {
-	resp, err := DeleteInter(qs.Client, fmt.Sprintf("api/jobs/%s", strconv.Itoa(jobId)), nil)
+	resp, err := DeleteInter(qs.Client, fmt.Sprintf("/api/jobs/%s", strconv.Itoa(jobId)), nil)
 	if err != nil {
 		return nil, err
 	} else {
@@ -221,7 +268,7 @@ func (qs QueriesS) DeleteJog(jobId int) (r io.Reader, err error) {
 
 //GET /api/jobs/(job_id)
 func (qs QueriesS) GetJob(jobId int) (r io.Reader, err error) {
-	resp, err := GetInter(qs.Client, fmt.Sprintf("api/jobs/%s", strconv.Itoa(jobId)), nil)
+	resp, err := GetInter(qs.Client, fmt.Sprintf("/api/jobs/%s", strconv.Itoa(jobId)), nil)
 	if err != nil {
 		return nil, err
 	} else {
