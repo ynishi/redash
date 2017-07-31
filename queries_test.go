@@ -119,9 +119,97 @@ const newQueryResp = `{
   },
   "query": "select * from hello;",
   "is_draft": true,
-  "id": 9,
+  "id": 1,
   "description": null,
   "name": "api",
+  "created_at": "2017-07-16T13:29:45.356947+00:00",
+  "last_modified_by": {
+    "auth_type": "password",
+    "created_at": "2017-07-16T10:15:31.897134+00:00",
+    "name": "admin",
+    "gravatar_url": "",
+    "updated_at": "2017-07-16T10:15:31.897134+00:00",
+    "id": 1,
+    "groups": [
+      1,
+      2
+    ],
+    "email": "user1@example.com"
+  },
+  "version": 1,
+  "query_hash": "914a74181b749b366dfaebf7aaf52164",
+  "api_key": "abcdef",
+  "options": {},
+  "data_source_id": 1
+}`
+
+const updateQueryResp = `{
+  "latest_query_data_id": null,
+  "schedule": null,
+  "is_archived": false,
+  "updated_at": "2017-07-16T13:29:45.356947+00:00",
+  "user": {
+    "auth_type": "password",
+    "created_at": "2017-07-16T10:15:31.897134+00:00",
+    "name": "admin",
+    "gravatar_url": "",
+    "updated_at": "2017-07-16T10:15:31.897134+00:00",
+    "id": 1,
+    "groups": [
+      1,
+      2
+    ],
+    "email": "user1@example.com"
+  },
+  "query": "select * from hello;",
+  "is_draft": true,
+  "id": 1,
+  "description": null,
+  "name": "api2",
+  "created_at": "2017-07-16T13:29:45.356947+00:00",
+  "last_modified_by": {
+    "auth_type": "password",
+    "created_at": "2017-07-16T10:15:31.897134+00:00",
+    "name": "admin",
+    "gravatar_url": "",
+    "updated_at": "2017-07-16T10:15:31.897134+00:00",
+    "id": 1,
+    "groups": [
+      1,
+      2
+    ],
+    "email": "user1@example.com"
+  },
+  "version": 1,
+  "query_hash": "914a74181b749b366dfaebf7aaf52164",
+  "api_key": "abcdef",
+  "options": {},
+  "data_source_id": 1
+}`
+
+const forkQueryResp = `{
+  "latest_query_data_id": null,
+  "schedule": null,
+  "is_archived": false,
+  "updated_at": "2017-07-16T13:29:45.356947+00:00",
+  "user": {
+    "auth_type": "password",
+    "created_at": "2017-07-16T10:15:31.897134+00:00",
+    "name": "admin",
+    "gravatar_url": "",
+    "updated_at": "2017-07-16T10:15:31.897134+00:00",
+    "id": 1,
+    "groups": [
+      1,
+      2
+    ],
+    "email": "user1@example.com"
+  },
+  "query": "select * from hello;",
+  "is_draft": true,
+  "id": 2,
+  "description": null,
+  "name": "Copy of (#1) api",
   "created_at": "2017-07-16T13:29:45.356947+00:00",
   "last_modified_by": {
     "auth_type": "password",
@@ -153,6 +241,16 @@ const jobResp = `{
   }
 }`
 
+const jobRet = `{
+  "job": {
+    "status": 3,
+    "error": "",
+    "id": "d856637d-9387-4874-a944-9c93ac45c688",
+    "query_result_id": 1,
+    "updated_at": 0
+  }
+}`
+
 var (
 	tgs     *httptest.Server
 	muxData = []muxVal{
@@ -161,19 +259,18 @@ var (
 		{"queries/recent", queryResps, "", ""},
 		{"queries/my", pagingResp, "", ""},
 		{"queries", pagingResp, newQueryResp, ""},
-		{"queries/1", queryResp, `{"id": 1}`, `{"id": 1}`},
+		{"queries/1", queryResp, updateQueryResp, "null"},
 		{"queries/1/refresh", "", jobResp, ""},
-		{"queries/1/fork", "", `{"id": 1}`, ""},
+		{"queries/1/fork", "", forkQueryResp, ""},
 		{"queries/1/results/2.json", queryResultResp, "", ""},
 		{"queries/1/results.json", queryResultResp, "", ""},
-		{"query_results", "", `{"id": 1}`, ""},
+		{"query_results", "", jobResp, ""},
 		{"query_results/2", queryResultResp, "", ""},
-		{"jobs/1", `{"id": 1}`, "", `{"id": 1}`},
+		{"jobs/d856637d-9387-4874-a944-9c93ac45c688", jobRet, "", "null"},
 	}
 )
 
 func init() {
-
 	mux := http.NewServeMux()
 	for _, d := range muxData {
 		ep := fmt.Sprintf("/api/%s", d.path)
@@ -216,7 +313,6 @@ func init() {
 			})
 	}
 	tgs = httptest.NewServer(mux)
-
 	mockClient.MockUrl = tgs.URL
 	Queries.Client = mockClient
 }
@@ -245,6 +341,7 @@ func TestPostFormat(t *testing.T) {
 func TestGetSearch(t *testing.T) {
 
 	q := "hello"
+
 	r, err := Queries.GetSearch(q)
 	if err != nil {
 		t.Error(err)
@@ -264,13 +361,13 @@ func TestGetSearch(t *testing.T) {
 func TestGetRecent(t *testing.T) {
 
 	name := "helloQuery"
+
 	r, err := Queries.GetRecent()
 	if err != nil {
 		t.Error(err)
 	}
 	buf, err := ioutil.ReadAll(r)
 	var responsed []ResponseQuery
-
 	err = json.Unmarshal(buf, &responsed)
 	if err != nil {
 		t.Error(err)
@@ -284,13 +381,13 @@ func TestGetMy(t *testing.T) {
 
 	pageSize := 20
 	page := 1
+
 	r, err := Queries.GetMy(pageSize, page)
 	if err != nil {
 		t.Error(err)
 	}
 	buf, err := ioutil.ReadAll(r)
 	var responsed PagingResponseQuery
-
 	err = json.Unmarshal(buf, &responsed)
 	if err != nil {
 		t.Error(err)
@@ -313,13 +410,13 @@ func TestPostQuery(t *testing.T) {
 		Query:        query,
 		Name:         name,
 	}
+
 	r, err := Queries.PostQuery(*newQuery)
 	if err != nil {
 		t.Error(err)
 	}
 	buf, err := ioutil.ReadAll(r)
 	var responsed ResponseQuery
-
 	err = json.Unmarshal(buf, &responsed)
 	if err != nil {
 		t.Error(err)
@@ -333,7 +430,6 @@ func TestPostQuery(t *testing.T) {
 	if responsed.Name != name {
 		t.Fatalf("Name is not match,\n want: %q,\n have: %q\n", name, responsed.Name)
 	}
-
 }
 
 func TestGetQuery(t *testing.T) {
@@ -376,16 +472,84 @@ func TestPostRefresh(t *testing.T) {
 	if job.Job.Status != 2 {
 		t.Fatalf("Job status is not match,\n want: %q,\n have: %q\n", 2, job.Job.Status)
 	}
-	if job.Job.QueryResultId != "" {
+	if job.Job.QueryResultId != 0 {
 		t.Fatalf("Query result id is not match,\n want: %q,\n have: %q\n", "", job.Job.QueryResultId)
 	}
 }
 
-func TestPostFork(t *testing.T) {}
+func TestPostFork(t *testing.T) {
 
-func TestPostQueryId(t *testing.T) {}
+	queryId := 1
+	forkedName := "Copy of (#1) api"
 
-func TestDeleteQuery(t *testing.T) {}
+	r, err := Queries.PostFork(queryId)
+	if err != nil {
+		t.Error(err)
+	}
+	buf, err := ioutil.ReadAll(r)
+	var responsed ResponseQuery
+
+	err = json.Unmarshal(buf, &responsed)
+	if err != nil {
+		t.Error(err)
+	}
+	if responsed.Id == queryId {
+		t.Fatalf("Query id is not updated,\n want: != %q,\n have: %q\n", queryId, responsed.Id)
+	}
+	if responsed.Name != forkedName {
+		t.Fatalf("Name is not match,\n want: %q,\n have: %q\n", forkedName, responsed.Name)
+	}
+}
+
+func TestPostQueryId(t *testing.T) {
+
+	queryId := 1
+	dataSourceId := 1
+	query := "select * from hello;"
+	name := "api2"
+	updateQuery := &NewQuery{
+		DataSourceId: dataSourceId,
+		Query:        query,
+		Name:         name,
+	}
+
+	r, err := Queries.PostQueryId(queryId, *updateQuery)
+	if err != nil {
+		t.Error(err)
+	}
+	buf, err := ioutil.ReadAll(r)
+	var responsed ResponseQuery
+	err = json.Unmarshal(buf, &responsed)
+	if err != nil {
+		t.Error(err)
+	}
+	if responsed.Id != queryId {
+		t.Fatalf("Query id is not match,\n want: %q,\n have: %q\n", queryId, responsed.Id)
+	}
+	if responsed.Query != query {
+		t.Fatalf("Query is not match,\n want: %q,\n have: %q\n", query, responsed.Query)
+	}
+	if responsed.Name != name {
+		t.Fatalf("Name is not match,\n want: %q,\n have: %q\n", name, responsed.Name)
+	}
+}
+
+func TestDeleteQuery(t *testing.T) {
+
+	queryId := 1
+
+	r, err := Queries.DeleteQuery(queryId)
+	if err != nil {
+		t.Error(err)
+	}
+	buf, err := ioutil.ReadAll(r)
+	if err != nil {
+		t.Error(err)
+	}
+	if string(buf) != "null" {
+		t.Fatalf("Resq is invalid,\n want: %q,\n have: %q\n", "null", string(buf))
+	}
+}
 
 func TestGetQueryId(t *testing.T) {
 
@@ -398,10 +562,9 @@ func TestGetQueryId(t *testing.T) {
 	}
 	buf, err := ioutil.ReadAll(r)
 	var responsed ResponseQuery
-
 	err = json.Unmarshal(buf, &responsed)
 	if err != nil {
-		t.Fatalf("Format is not json,\n err: %q,\n hav	e: %q\n", err, buf)
+		t.Fatalf("Format is not json,\n err: %q,\n have: %q\n", err, buf)
 	}
 	if responsed.Id != queryId {
 		t.Fatalf("Query id is not match,\n want: %q,\n have: %q\n", queryId, responsed.Id)
@@ -411,9 +574,36 @@ func TestGetQueryId(t *testing.T) {
 	}
 }
 
-func TestPostQueryResult(t *testing.T) {}
+func TestPostQueryResult(t *testing.T) {
+
+	dataSourceId := 1
+	maxAge := 0
+	query := "select * from hello;"
+
+	r, err := Queries.PostQueryResult(query, maxAge, dataSourceId)
+	if err != nil {
+		t.Error(err)
+	}
+	buf, err := ioutil.ReadAll(r)
+	var respJob Job
+
+	err = json.Unmarshal(buf, &respJob)
+	if err != nil {
+		t.Error(err)
+	}
+	if respJob.Job.Status != 2 {
+		t.Fatalf("Job status is error,\n want: %q,\n have: %q\n", 2, respJob.Job.Status)
+	}
+	if respJob.Job.QueryResultId != 0 {
+		t.Fatalf("QueryResultId is not null,\n want: %q,\n have: %q\n", "null", respJob.Job.QueryResultId)
+	}
+	if respJob.Job.Error != "" {
+		t.Fatalf("Error is not empty,\n want: %q,\n have: %q\n", "", respJob.Job.Error)
+	}
+}
 
 func TestGetResultsById(t *testing.T) {
+
 	queryId := 1
 	queryResultId := 2
 	filetype := "json"
@@ -424,10 +614,9 @@ func TestGetResultsById(t *testing.T) {
 	}
 	buf, err := ioutil.ReadAll(r)
 	var results Result
-
 	err = json.Unmarshal(buf, &results)
 	if err != nil {
-		t.Fatalf("Format is not json,\n err: %q,\n hav	e: %q\n", err, buf)
+		t.Fatalf("Format is not json,\n err: %q,\n have: %q\n", err, buf)
 	}
 	if results.QueryResult.Id != queryResultId {
 		t.Fatalf("Query result id is not match,\n want: %q,\n have: %q\n", queryResultId, results.QueryResult.Id)
@@ -435,7 +624,6 @@ func TestGetResultsById(t *testing.T) {
 	if len(results.QueryResult.Data.Rows) == 0 {
 		t.Fatalf("Rows num is bad,\n want: %q,\n have: %q\n", 2, len(results.QueryResult.Data.Rows))
 	}
-
 }
 
 func TestGetResultsByQueryId(t *testing.T) {
@@ -449,7 +637,6 @@ func TestGetResultsByQueryId(t *testing.T) {
 	}
 	buf, err := ioutil.ReadAll(r)
 	var results Result
-
 	err = json.Unmarshal(buf, &results)
 	if err != nil {
 		t.Fatalf("Format is not json,\n err: %q,\n hav	e: %q\n", err, buf)
@@ -469,10 +656,9 @@ func TestGetQueryResults(t *testing.T) {
 	}
 	buf, err := ioutil.ReadAll(r)
 	var results Result
-
 	err = json.Unmarshal(buf, &results)
 	if err != nil {
-		t.Fatalf("Format is not json,\n err: %q,\n hav	e: %q\n", err, buf)
+		t.Fatalf("Format is not json,\n err: %q,\n have: %q\n", err, buf)
 	}
 	if results.QueryResult.Id != queryResultId {
 		t.Fatalf("Query result id is not match,\n want: %q,\n have: %q\n", queryResultId, results.QueryResult.Id)
@@ -482,8 +668,41 @@ func TestGetQueryResults(t *testing.T) {
 	}
 }
 
-func TestDeleteJog(t *testing.T) {}
+func TestDeleteJog(t *testing.T) {
+
+	jobId := "d856637d-9387-4874-a944-9c93ac45c688"
+
+	r, err := Queries.DeleteJog(jobId)
+	if err != nil {
+		t.Error(err)
+	}
+	buf, err := ioutil.ReadAll(r)
+	if err != nil {
+		t.Error(err)
+	}
+	if string(buf) != "null" {
+		t.Fatalf("Resq is invalid,\n want: %q,\n have: %q\n", "null", string(buf))
+	}
+}
 
 func TestGetJob(t *testing.T) {
 
+	jobId := "d856637d-9387-4874-a944-9c93ac45c688"
+
+	r, err := Queries.GetJob(jobId)
+	if err != nil {
+		t.Error(err)
+	}
+	buf, err := ioutil.ReadAll(r)
+	var job Job
+	err = json.Unmarshal(buf, &job)
+	if err != nil {
+		t.Fatalf("Format is not json,\n err: %q,\n have: %q\n", err, buf)
+	}
+	if job.Job.Id != jobId {
+		t.Fatalf("Job id is not match,\n want: %q,\n have: %q\n", jobId, job.Job.Id)
+	}
+	if job.Job.Error != "" {
+		t.Fatalf("Error is not empty,\n want: %q,\n have: %q\n", "", job.Job.Error)
+	}
 }

@@ -99,7 +99,7 @@ type JobInner struct {
 	Status        int    `json:"status"`
 	Error         string `json:"error"`
 	Id            string `json:"id"`
-	QueryResultId string `json:"query_result_id"`
+	QueryResultId int    `json:"query_result_id"`
 	Updated_at    int    `json:"updated_at"`
 }
 
@@ -169,7 +169,7 @@ func (qs QueriesS) GetQuery(pageSize, page int) (r io.Reader, err error) {
 }
 
 func (qs QueriesS) PostRefresh(queryId int) (r io.Reader, err error) {
-	resp, err := PostInter(qs.Client, qs.Queries(fmt.Sprintf("%s/refresh", strconv.Itoa(queryId))), nil)
+	resp, err := PostInter(qs.Client, qs.Queries(fmt.Sprintf("%d/refresh", queryId)), nil)
 	if err != nil {
 		return nil, err
 	} else {
@@ -178,7 +178,7 @@ func (qs QueriesS) PostRefresh(queryId int) (r io.Reader, err error) {
 }
 
 func (qs QueriesS) PostFork(queryId int) (r io.Reader, err error) {
-	resp, err := PostInter(qs.Client, qs.Queries(fmt.Sprintf("%s/fork", strconv.Itoa(queryId))), nil)
+	resp, err := PostInter(qs.Client, qs.Queries(fmt.Sprintf("%d/fork", queryId)), nil)
 	if err != nil {
 		return nil, err
 	} else {
@@ -217,8 +217,8 @@ func (qs QueriesS) GetQueryId(queryId int) (r io.Reader, err error) {
 	}
 }
 
-func (qs QueriesS) PostQueryResult(query string, queryId, maxAge, dataSourceId int) (r io.Reader, err error) {
-	resp, err := PostInter(qs.Client, "/api/query_results", []byte(fmt.Sprintf(`{"query":"%s","query_id":%d,"max_age":"%s","data_sourece_id":%d}`)))
+func (qs QueriesS) PostQueryResult(query string, maxAge, dataSourceId int) (r io.Reader, err error) {
+	resp, err := PostInter(qs.Client, "/api/query_results", []byte(fmt.Sprintf(`{"query":"%s","max_age":%d,"data_sourece_id":%d}`, query, maxAge, dataSourceId)))
 	if err != nil {
 		return nil, err
 	} else {
@@ -226,9 +226,8 @@ func (qs QueriesS) PostQueryResult(query string, queryId, maxAge, dataSourceId i
 	}
 }
 
-//GET /api/queries/(query_id)/results/(query_result_id).(filetype)
 func (qs QueriesS) GetResultsById(queryId, queryResultId int, filetype string) (r io.Reader, err error) {
-	resp, err := GetInter(qs.Client, qs.Queries(fmt.Sprintf("%s/results/%s.%s", strconv.Itoa(queryId), strconv.Itoa(queryResultId), filetype)), nil)
+	resp, err := GetInter(qs.Client, qs.Queries(fmt.Sprintf("%d/results/%d.%s", queryId, queryResultId, filetype)), nil)
 	if err != nil {
 		return nil, err
 	} else {
@@ -236,9 +235,8 @@ func (qs QueriesS) GetResultsById(queryId, queryResultId int, filetype string) (
 	}
 }
 
-//GET /api/queries/(query_id)/results.(filetype)
 func (qs QueriesS) GetResultsByQueryId(queryId int, filetype string) (r io.Reader, err error) {
-	resp, err := GetInter(qs.Client, qs.Queries(fmt.Sprintf("%s/results.%s", strconv.Itoa(queryId), filetype)), nil)
+	resp, err := GetInter(qs.Client, qs.Queries(fmt.Sprintf("%d/results.%s", queryId, filetype)), nil)
 	if err != nil {
 		return nil, err
 	} else {
@@ -246,7 +244,6 @@ func (qs QueriesS) GetResultsByQueryId(queryId int, filetype string) (r io.Reade
 	}
 }
 
-//GET /api/query_results/(query_result_id)
 func (qs QueriesS) GetQueryResults(queryResultId int) (r io.Reader, err error) {
 	resp, err := GetInter(qs.Client, fmt.Sprintf("/api/query_results/%d", queryResultId), nil)
 	if err != nil {
@@ -256,9 +253,8 @@ func (qs QueriesS) GetQueryResults(queryResultId int) (r io.Reader, err error) {
 	}
 }
 
-//DELETE /api/jobs/(job_id)
-func (qs QueriesS) DeleteJog(jobId int) (r io.Reader, err error) {
-	resp, err := DeleteInter(qs.Client, fmt.Sprintf("/api/jobs/%s", strconv.Itoa(jobId)), nil)
+func (qs QueriesS) DeleteJog(jobId string) (r io.Reader, err error) {
+	resp, err := DeleteInter(qs.Client, fmt.Sprintf("/api/jobs/%s", jobId), nil)
 	if err != nil {
 		return nil, err
 	} else {
@@ -266,9 +262,8 @@ func (qs QueriesS) DeleteJog(jobId int) (r io.Reader, err error) {
 	}
 }
 
-//GET /api/jobs/(job_id)
-func (qs QueriesS) GetJob(jobId int) (r io.Reader, err error) {
-	resp, err := GetInter(qs.Client, fmt.Sprintf("/api/jobs/%s", strconv.Itoa(jobId)), nil)
+func (qs QueriesS) GetJob(jobId string) (r io.Reader, err error) {
+	resp, err := GetInter(qs.Client, fmt.Sprintf("/api/jobs/%s", jobId), nil)
 	if err != nil {
 		return nil, err
 	} else {
