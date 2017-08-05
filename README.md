@@ -1,24 +1,34 @@
 # Redash(for Go)
 
-Redash(for Go) is a unofficial rest api client lib.
+Redash(for Go) is a unofficial simple api client lib.
+
+See Godoc at http://godoc.org/github.com/ynishi/redash
+
+Redash is OSS BI tool. See more at https://redash.io/
 
 ## Current status
 
-* Development.
-* Some features can use.
-* APIs maybe change(public function Get/Post/Delete won't change)
+* Version 1.0(v1)
 
 ## Example
 
-```
-$ REDASH_APIKEY="..."
-$ REDASH_URL="http://..."
+### set env
 
+```
+$ export REDASH_APIKEY="abc..."
+$ export REDASH_URL="http://localhost"
+```
+
+### code 
+
+```
 package main
 
-import "github.com/ynishi/redash"
+redash "github.com/ynishi/redash/v1"
 
-resultJsonBytes = redash.Get("/api/dashboards", nil) 
+response, _ := redash.Get("/api/queries", nil)
+buf := ioutil.ReadAll(response.Body)
+fmt.Printf("%v", string(buf))
 ```
 
 ## Install 
@@ -29,13 +39,19 @@ $ go get "github.com/ynishi/redash"
 
 ## Development
 
+Welcome to participate develop, send pull request, add issue(question, bugs, wants and so on).
+
+### Start develop
+
+* first, clone repository.
 ```
 $ git clone https://github.com/ynishi/redash.git 
 $ cd redash
 $ go test
 ```
+* and make rull request.
 
-## Credit and Licence
+## Credit and License
 
 Copyright (c) 2017, Yutaka Nishimura.
 Licenced under MIT, see LICENSE.

@@ -1,16 +1,26 @@
+// Copyright 2017 Yutaka Nishimura. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 /*
    The redash package implements a simple client and wrapper library for
    Redash REST api.
 
    GET/POST/DELETE is accepted.
-   Any Redash apis(include not documented official) executable via Client api.
-   Original client is made by implement Interface(some functions).
 
-   Copyright 2017 Yutaka Nishimura. All rights reserved.
-   Use of this source code is governed by a MIT-style
-   license that can be found in the LICENSE file.
+   Original client is made by implement Interface.
+
+   Summary of use case.
+
+   Case 1:
+     Get/Post/Delete directory.
+   Case 2:
+     implement your Interface and
+     GetInter/PostInter/DeleteInter with new Client.
+   Case 3:
+     Queries.GetQuery/(other func in Queries)
+
 */
-
 package redash
 
 import (
@@ -78,7 +88,10 @@ type DefaultOptser interface {
 	DefaultOpts() *Options
 }
 
-// Interface for original client.
+// A type, for original client, that sufisfies redash.Interface can
+// use GetInter, PostInter, DeleteInter methods.
+// If want to change apikey management, Httpclient and so on,
+// just implement methods of this Interface.
 type Interface interface {
 	Urler
 	Apikeyer
@@ -87,46 +100,46 @@ type Interface interface {
 }
 
 // GetInter do Redash GET with Interface and return result.
-func GetInter(data Interface, sub string, params map[string]string) (resp *http.Response, err error) {
-	opts := data.DefaultOpts()
+func GetInter(client Interface, sub string, params map[string]string) (resp *http.Response, err error) {
+	opts := client.DefaultOpts()
 	for key, value := range params {
 		opts.Params[key] = value
 	}
-	return DoInter(data, http.MethodGet, sub, opts)
+	return DoInter(client, http.MethodGet, sub, opts)
 }
 
 // PostInter do Redash POST with Interface and return result.
-func PostInter(data Interface, sub string, jsonBody []byte) (resp *http.Response, err error) {
-	opts := data.DefaultOpts()
+func PostInter(client Interface, sub string, jsonBody []byte) (resp *http.Response, err error) {
+	opts := client.DefaultOpts()
 	for key, value := range defaultPostHeader {
 		opts.Header[key] = value
 	}
 	opts.Body = bytes.NewReader(jsonBody)
-	return DoInter(data, http.MethodPost, sub, opts)
+	return DoInter(client, http.MethodPost, sub, opts)
 }
 
 // DeleteInter do Redash DELETE with Interface and return result.
-func DeleteInter(data Interface, sub string, params map[string]string) (resp *http.Response, err error) {
-	opts := data.DefaultOpts()
+func DeleteInter(client Interface, sub string, params map[string]string) (resp *http.Response, err error) {
+	opts := client.DefaultOpts()
 	for key, value := range params {
 		opts.Params[key] = value
 	}
-	return DoInter(data, http.MethodDelete, sub, opts)
+	return DoInter(client, http.MethodDelete, sub, opts)
 }
 
 // DoInter do Redash apis with Interface and return result.
-func DoInter(data Interface, method, sub string, opts *Options) (resp *http.Response, err error) {
+func DoInter(client Interface, method, sub string, opts *Options) (resp *http.Response, err error) {
 	log.Printf("[INFO] do: %s %s", method, sub)
-	req, err := RequestInter(data, method, sub, opts)
+	req, err := RequestInter(client, method, sub, opts)
 	if err != nil {
 		return nil, err
 	}
-	return data.HTTPClient().Do(req)
+	return client.HTTPClient().Do(req)
 }
 
 // RequestInter make request with Interface.
-func RequestInter(data Interface, method, sub string, opts *Options) (req *http.Request, err error) {
-	u, err := data.Url()
+func RequestInter(client Interface, method, sub string, opts *Options) (req *http.Request, err error) {
+	u, err := client.Url()
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +153,7 @@ func RequestInter(data Interface, method, sub string, opts *Options) (req *http.
 	if err != nil {
 		return nil, err
 	}
-	apikey, err := data.Apikey()
+	apikey, err := client.Apikey()
 	if err != nil {
 		return nil, err
 	}
