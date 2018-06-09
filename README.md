@@ -14,26 +14,40 @@ Redash is OSS BI tool. See more at https://redash.io/
 
 ### set env
 
-```
+```shell
 $ export REDASH_APIKEY="abc..."
 $ export REDASH_URL="http://localhost"
 ```
 
-### code 
+### code
 
-```
+```go
 package main
 
-redash "github.com/ynishi/redash/v1"
+import (
+	"fmt"
+	"io/ioutil"
+	"log"
 
-response, _ := redash.Get("/api/queries", nil)
-buf := ioutil.ReadAll(response.Body)
-fmt.Printf("%v", string(buf))
+	"github.com/ynishi/redash/v1"
+)
+
+func main() {
+	response, err := redash.Get("/api/queries", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	buf, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("%v", string(buf))
+}
 ```
 
-## Install 
+## Install
 
-```
+```shell
 $ go get "github.com/ynishi/redash"
 ```
 
@@ -44,14 +58,14 @@ Welcome to participate develop, send pull request, add issue(question, bugs, wan
 ### Start develop
 
 * first, clone repository.
-```
-$ git clone https://github.com/ynishi/redash.git 
+```shell
+$ git clone https://github.com/ynishi/redash.git
 $ cd redash
 $ go test
 ```
-* and make rull request.
+* and make pull request.
 
 ## Credit and License
 
 Copyright (c) 2017, Yutaka Nishimura.
-Licenced under MIT, see LICENSE.
+Licensed under MIT, see LICENSE.
